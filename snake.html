@@ -1,0 +1,1293 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>彩色消除贪吃蛇</title>
+
+  <style>
+    :root {
+      --page: #17191d;
+      --panel: #242930;
+      --panel-hover: #303740;
+      --line: #414b57;
+      --text: #f5f7f9;
+      --muted: #aab3bd;
+      --warning: #ffb020;
+      --danger: #f05252;
+      --cols: 24;
+      --rows: 14;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.018) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          rgba(255, 255, 255, 0.018) 1px,
+          transparent 1px
+        ),
+        var(--page);
+      background-size: 32px 32px;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      width: min(100%, 1080px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      display: grid;
+      grid-template-columns: repeat(2, 10px);
+      gap: 3px;
+    }
+
+    .brand-mark span {
+      width: 10px;
+      height: 10px;
+    }
+
+    .brand-mark span:nth-child(1) {
+      background: #ec5a5a;
+    }
+
+    .brand-mark span:nth-child(2) {
+      background: #50bd77;
+    }
+
+    .brand-mark span:nth-child(3) {
+      background: #518ddb;
+    }
+
+    .brand-mark span:nth-child(4) {
+      background: #ffffff;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .level-label {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .icon-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-button {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      place-items: center;
+      color: var(--text);
+      cursor: pointer;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+    }
+
+    .icon-button:hover,
+    .control-button:hover {
+      background: var(--panel-hover);
+    }
+
+    .icon-button svg {
+      width: 19px;
+      height: 19px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+    }
+
+    .game-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 230px;
+      gap: 20px;
+      align-items: start;
+      margin-top: 20px;
+    }
+
+    .status-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      margin-bottom: 12px;
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 12px 14px;
+      border-right: 1px solid var(--line);
+    }
+
+    .stat:last-child {
+      border-right: 0;
+    }
+
+    .stat-label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat-value {
+      display: block;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .length-warning {
+      color: var(--warning);
+    }
+
+    .length-danger {
+      color: var(--danger);
+    }
+
+    .board-wrap {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: #101215;
+      border: 1px solid #505b68;
+      border-radius: 5px;
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), 1fr);
+      width: 100%;
+      aspect-ratio: 24 / 14;
+    }
+
+    .cell {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background-image:
+        linear-gradient(
+          to right,
+          rgba(255, 255, 255, 0.055) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.055) 1px,
+          transparent 1px
+        );
+      background-size: 100% 100%;
+    }
+
+    .tile {
+      position: absolute;
+      inset: 13%;
+      border-radius: 2px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    }
+
+    /* 彩色方块没有动画，不会闪烁 */
+    .food {
+      inset: 18%;
+    }
+
+    .snake-white {
+      background: #f8f8f8;
+      box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+        0 0 8px rgba(255, 255, 255, 0.18);
+    }
+
+    .snake-head {
+      inset: 9%;
+      box-shadow:
+        inset 0 0 0 2px #ffffff,
+        0 0 11px rgba(255, 255, 255, 0.3);
+    }
+
+    .red {
+      background: #ec5a5a;
+    }
+
+    .orange {
+      background: #ef982f;
+    }
+
+    .yellow {
+      background: #e5cc42;
+    }
+
+    .green {
+      background: #50bd77;
+    }
+
+    .cyan {
+      background: #46bfc2;
+    }
+
+    .blue {
+      background: #518ddb;
+    }
+
+    .pink {
+      background: #d66bb7;
+    }
+
+    .side-panel {
+      padding: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+    }
+
+    .side-panel h2 {
+      margin: 0 0 12px;
+      font-size: 15px;
+    }
+
+    .rule-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      color: var(--muted);
+      list-style: none;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .rule-example {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 7px;
+    }
+
+    .mini-tile {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+    }
+
+    .mini-arrow {
+      color: #89939e;
+    }
+
+    .color-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 18px;
+    }
+
+    .color-key span {
+      width: 15px;
+      height: 15px;
+      border-radius: 2px;
+    }
+
+    .control-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 48px);
+      gap: 6px;
+      justify-content: center;
+      margin: 20px auto 0;
+    }
+
+    .control-button {
+      display: grid;
+      width: 48px;
+      height: 42px;
+      padding: 0;
+      place-items: center;
+      color: var(--text);
+      cursor: pointer;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+    }
+
+    .control-button.up {
+      grid-column: 2;
+    }
+
+    .control-button.left {
+      grid-column: 1;
+    }
+
+    .control-button.down {
+      grid-column: 2;
+    }
+
+    .control-button.right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    .keyboard-tip {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .overlay {
+      position: absolute;
+      z-index: 10;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(10, 12, 15, 0.82);
+    }
+
+    .overlay.visible {
+      display: flex;
+    }
+
+    .dialog {
+      width: min(100%, 390px);
+      padding: 24px;
+      text-align: center;
+      background: #252a31;
+      border: 1px solid #596675;
+      border-radius: 6px;
+      box-shadow: 0 18px 52px rgba(0, 0, 0, 0.45);
+    }
+
+    .dialog-kicker {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dialog h2 {
+      margin: 0;
+      font-size: 25px;
+    }
+
+    .dialog p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .primary-button,
+    .secondary-button {
+      min-height: 38px;
+      padding: 0 16px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .primary-button {
+      color: #101215;
+      font-weight: bold;
+      background: #f2f4f6;
+      border: 1px solid #ffffff;
+    }
+
+    .primary-button:hover {
+      background: #ffffff;
+    }
+
+    .secondary-button {
+      color: var(--text);
+      background: transparent;
+      border: 1px solid #5b6774;
+    }
+
+    .secondary-button:hover {
+      background: #343b44;
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        padding: 14px;
+      }
+
+      .game-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .side-panel {
+        order: 2;
+      }
+    }
+
+    @media (max-width: 450px) {
+      .app {
+        padding: 10px;
+      }
+
+      .brand-mark {
+        display: none;
+      }
+
+      h1 {
+        font-size: 17px;
+      }
+
+      .status-bar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .stat {
+        padding: 10px;
+      }
+
+      .stat:nth-child(2) {
+        border-right: 0;
+      }
+
+      .stat:last-child {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--line);
+      }
+
+      .keyboard-tip {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div>
+          <h1>彩色消除贪吃蛇</h1>
+          <p class="level-label" id="levelLabel">第 1 / 10 关</p>
+        </div>
+      </div>
+
+      <div class="icon-actions">
+        <button
+          class="icon-button"
+          id="pauseButton"
+          type="button"
+          title="暂停 / 继续（空格）"
+          aria-label="暂停或继续"
+        >
+          <svg viewBox="0 0 24 24" id="pauseIcon">
+            <path d="M8 5v14"></path>
+            <path d="M16 5v14"></path>
+          </svg>
+        </button>
+
+        <button
+          class="icon-button"
+          id="restartButton"
+          type="button"
+          title="重新开始本关（R）"
+          aria-label="重新开始本关"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+            <path d="M3 4v5h5"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="game-layout">
+      <div class="game-area">
+        <div class="status-bar">
+          <div class="stat">
+            <span class="stat-label">剩余方块</span>
+            <span class="stat-value" id="remainingValue">15</span>
+          </div>
+
+          <div class="stat">
+            <span class="stat-label">蛇身长度</span>
+            <span class="stat-value" id="lengthValue">3 / 10</span>
+          </div>
+
+          <div class="stat">
+            <span class="stat-label">移动速度</span>
+            <span class="stat-value" id="speedValue">慢</span>
+          </div>
+        </div>
+
+        <div class="board-wrap">
+          <div
+            id="board"
+            role="application"
+            aria-label="彩色消除贪吃蛇游戏区域"
+          ></div>
+
+          <div class="overlay visible" id="overlay">
+            <div class="dialog">
+              <p class="dialog-kicker" id="dialogKicker">
+                第 1 / 10 关
+              </p>
+
+              <h2 id="dialogTitle">彩色消除贪吃蛇</h2>
+
+              <p id="dialogText">
+                吃掉彩色方块，将颜色加到蛇尾。连续吃到与蛇尾相同的颜色时，两个同色方块会消除。
+              </p>
+
+              <div class="dialog-actions">
+                <button
+                  class="primary-button"
+                  id="primaryButton"
+                  type="button"
+                >
+                  开始游戏
+                </button>
+
+                <button
+                  class="secondary-button"
+                  id="secondaryButton"
+                  type="button"
+                >
+                  重新开始
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-pad" aria-label="移动控制">
+          <button
+            class="control-button up"
+            data-direction="up"
+            type="button"
+            aria-label="向上移动"
+          >
+            ↑
+          </button>
+
+          <button
+            class="control-button left"
+            data-direction="left"
+            type="button"
+            aria-label="向左移动"
+          >
+            ←
+          </button>
+
+          <button
+            class="control-button down"
+            data-direction="down"
+            type="button"
+            aria-label="向下移动"
+          >
+            ↓
+          </button>
+
+          <button
+            class="control-button right"
+            data-direction="right"
+            type="button"
+            aria-label="向右移动"
+          >
+            →
+          </button>
+        </div>
+
+        <p class="keyboard-tip">
+          方向键或 WASD 移动，空格暂停，R 重开本关
+        </p>
+      </div>
+
+      <aside class="side-panel">
+        <h2>颜色消除规则</h2>
+
+        <ul class="rule-list">
+          <li>蛇初始由 3 个白色方块组成。</li>
+          <li>吃到不同颜色时，该颜色会增加到蛇尾。</li>
+          <li>
+            吃到和蛇尾相同的颜色时，两个同色方块会消除。
+            <div class="rule-example">
+              <span class="mini-tile red"></span>
+              <span class="mini-arrow">+</span>
+              <span class="mini-tile red"></span>
+              <span class="mini-arrow">= 消除</span>
+            </div>
+          </li>
+          <li>蛇身达到 10 格、撞墙或撞到自身时失败。</li>
+          <li>清空场地内所有彩色方块即可进入下一关。</li>
+          <li>彩色方块会按照当前关卡的时间自动改变位置。</li>
+        </ul>
+
+        <div class="color-key" aria-label="可用颜色">
+          <span class="red"></span>
+          <span class="orange"></span>
+          <span class="yellow"></span>
+          <span class="green"></span>
+          <span class="cyan"></span>
+          <span class="blue"></span>
+          <span class="pink"></span>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const COLS = 24;
+    const ROWS = 14;
+    const MAX_LENGTH = 10;
+    const TOTAL_LEVELS = 10;
+
+    /*
+      彩色方块位置变化间隔。
+      currentLevel 从 0 开始，因此：
+      FOOD_RELOCATE_INTERVALS[0] 对应第 1 关。
+    */
+    const FOOD_RELOCATE_INTERVALS = [
+      10000, // 第 1 关：10 秒
+      9000,  // 第 2 关：9 秒
+      8000,  // 第 3 关：8 秒
+      7000,  // 第 4 关：7 秒
+      6000,  // 第 5 关：6 秒
+      5000,  // 第 6 关：5 秒
+      4000,  // 第 7 关：4 秒
+      3000,  // 第 8 关：3 秒
+      2000,  // 第 9 关：2 秒
+      2000   // 第 10 关：2 秒
+    ];
+
+    const COLORS = [
+      "red",
+      "orange",
+      "yellow",
+      "green",
+      "cyan",
+      "blue",
+      "pink"
+    ];
+
+    const LEVELS = Array.from(
+      { length: TOTAL_LEVELS },
+      (_, index) => {
+        const level = index + 1;
+
+        return {
+          level,
+          foodCount: 15 + index * 3,
+          speed: 400 - index * 28,
+          speedName:
+            level <= 2
+              ? "慢"
+              : level <= 4
+                ? "中等"
+                : level <= 7
+                  ? "快"
+                  : "很快",
+          colorCount: Math.min(
+            3 + Math.floor(index / 2),
+            COLORS.length
+          )
+        };
+      }
+    );
+
+    const board = document.getElementById("board");
+    const overlay = document.getElementById("overlay");
+    const levelLabel = document.getElementById("levelLabel");
+    const remainingValue = document.getElementById("remainingValue");
+    const lengthValue = document.getElementById("lengthValue");
+    const speedValue = document.getElementById("speedValue");
+    const pauseButton = document.getElementById("pauseButton");
+    const restartButton = document.getElementById("restartButton");
+    const pauseIcon = document.getElementById("pauseIcon");
+    const dialogKicker = document.getElementById("dialogKicker");
+    const dialogTitle = document.getElementById("dialogTitle");
+    const dialogText = document.getElementById("dialogText");
+    const primaryButton = document.getElementById("primaryButton");
+    const secondaryButton = document.getElementById("secondaryButton");
+
+    let currentLevel = 0;
+    let snake = [];
+    let foods = [];
+    let direction = { x: 1, y: 0 };
+    let queuedDirection = { x: 1, y: 0 };
+    let snakeTimer = null;
+    let foodMoveTimer = null;
+    let gameState = "intro";
+    let steps = 0;
+
+    function pointKey(point) {
+      return point.x + "," + point.y;
+    }
+
+    function createInitialSnake() {
+      const centerX = Math.floor(COLS / 2);
+      const centerY = Math.floor(ROWS / 2);
+
+      return [
+        {
+          x: centerX,
+          y: centerY,
+          color: "white"
+        },
+        {
+          x: centerX - 1,
+          y: centerY,
+          color: "white"
+        },
+        {
+          x: centerX - 2,
+          y: centerY,
+          color: "white"
+        }
+      ];
+    }
+
+    function randomInt(max) {
+      return Math.floor(Math.random() * max);
+    }
+
+    function generateFoods(levelConfig) {
+      const generated = [];
+      const occupied = new Set(snake.map(pointKey));
+      const availableColors = COLORS.slice(
+        0,
+        levelConfig.colorCount
+      );
+
+      while (generated.length < levelConfig.foodCount) {
+        const candidate = {
+          x: randomInt(COLS),
+          y: randomInt(ROWS),
+          color: availableColors[
+            randomInt(availableColors.length)
+          ]
+        };
+
+        const key = pointKey(candidate);
+
+        if (!occupied.has(key)) {
+          occupied.add(key);
+          generated.push(candidate);
+        }
+      }
+
+      return generated;
+    }
+
+    /*
+      彩色方块每隔当前关卡设定的时间改变位置。
+      只改变坐标，不改变颜色和数量。
+    */
+    function relocateFoods() {
+      if (gameState !== "playing" || foods.length === 0) {
+        return;
+      }
+
+      const occupied = new Set(snake.map(pointKey));
+
+      foods = foods.map((food) => {
+        let candidate;
+
+        do {
+          candidate = {
+            x: randomInt(COLS),
+            y: randomInt(ROWS),
+            color: food.color
+          };
+        } while (occupied.has(pointKey(candidate)));
+
+        occupied.add(pointKey(candidate));
+        return candidate;
+      });
+
+      render();
+    }
+
+    function cellIndex(point) {
+      return point.y * COLS + point.x;
+    }
+
+    function render() {
+      const cells = Array.from(
+        { length: COLS * ROWS },
+        () => '<div class="cell"></div>'
+      );
+
+      foods.forEach((food) => {
+        const index = cellIndex(food);
+
+        cells[index] =
+          '<div class="cell">' +
+          '<span class="tile food ' +
+          food.color +
+          '"></span>' +
+          "</div>";
+      });
+
+      snake.forEach((segment, index) => {
+        const boardIndex = cellIndex(segment);
+        const colorClass =
+          segment.color === "white"
+            ? "snake-white"
+            : segment.color;
+        const headClass =
+          index === 0 ? " snake-head" : "";
+
+        cells[boardIndex] =
+          '<div class="cell">' +
+          '<span class="tile ' +
+          colorClass +
+          headClass +
+          '"></span>' +
+          "</div>";
+      });
+
+      board.innerHTML = cells.join("");
+
+      const config = LEVELS[currentLevel];
+
+      levelLabel.textContent =
+        "第 " + config.level + " / " + TOTAL_LEVELS + " 关";
+
+      remainingValue.textContent = foods.length;
+      lengthValue.textContent =
+        snake.length + " / " + MAX_LENGTH;
+      speedValue.textContent = config.speedName;
+
+      lengthValue.classList.remove(
+        "length-warning",
+        "length-danger"
+      );
+
+      if (snake.length === MAX_LENGTH - 1) {
+        lengthValue.classList.add("length-danger");
+      } else if (snake.length >= MAX_LENGTH - 2) {
+        lengthValue.classList.add("length-warning");
+      }
+    }
+
+    function setPauseIcon(isPaused) {
+      pauseIcon.innerHTML = isPaused
+        ? '<path d="m8 5 11 7-11 7V5z"></path>'
+        : '<path d="M8 5v14"></path>' +
+          '<path d="M16 5v14"></path>';
+    }
+
+    function clearTimers() {
+      if (snakeTimer !== null) {
+        window.clearInterval(snakeTimer);
+        snakeTimer = null;
+      }
+
+      if (foodMoveTimer !== null) {
+        window.clearInterval(foodMoveTimer);
+        foodMoveTimer = null;
+      }
+    }
+
+    function startTimers() {
+      clearTimers();
+
+      snakeTimer = window.setInterval(
+        moveSnake,
+        LEVELS[currentLevel].speed
+      );
+
+      /*
+        根据当前关卡使用不同的彩色方块移动时间。
+        第 1 关 10000ms，第 9、10 关 2000ms。
+      */
+      foodMoveTimer = window.setInterval(
+        relocateFoods,
+        FOOD_RELOCATE_INTERVALS[currentLevel]
+      );
+    }
+
+    function showDialog(
+      kicker,
+      title,
+      text,
+      primaryText,
+      primaryAction,
+      secondaryText,
+      secondaryAction
+    ) {
+      clearTimers();
+      overlay.classList.add("visible");
+      dialogKicker.textContent = kicker;
+      dialogTitle.textContent = title;
+      dialogText.textContent = text;
+      primaryButton.textContent = primaryText;
+      secondaryButton.textContent = secondaryText;
+      primaryButton.onclick = primaryAction;
+      secondaryButton.onclick = secondaryAction;
+    }
+
+    function hideDialog() {
+      overlay.classList.remove("visible");
+    }
+
+    function beginLevel() {
+      snake = createInitialSnake();
+      direction = { x: 1, y: 0 };
+      queuedDirection = { x: 1, y: 0 };
+      steps = 0;
+      foods = generateFoods(LEVELS[currentLevel]);
+
+      gameState = "playing";
+      setPauseIcon(false);
+      hideDialog();
+      render();
+      startTimers();
+    }
+
+    function startCurrentLevel() {
+      beginLevel();
+    }
+
+    function pauseGame() {
+      if (gameState === "playing") {
+        gameState = "paused";
+        setPauseIcon(true);
+
+        showDialog(
+          "游戏已暂停",
+          "暂停中",
+          "继续规划下一步，避免蛇身达到 10 格。",
+          "继续游戏",
+          resumeGame,
+          "重开本关",
+          startCurrentLevel
+        );
+
+        return;
+      }
+
+      if (gameState === "paused") {
+        resumeGame();
+      }
+    }
+
+    function resumeGame() {
+      if (gameState !== "paused") {
+        return;
+      }
+
+      gameState = "playing";
+      setPauseIcon(false);
+      hideDialog();
+      startTimers();
+    }
+
+    function setDirection(nextDirection) {
+      if (gameState !== "playing") {
+        return;
+      }
+
+      const isReverse =
+        nextDirection.x === -direction.x &&
+        nextDirection.y === -direction.y;
+
+      if (!isReverse) {
+        queuedDirection = nextDirection;
+      }
+    }
+
+    function moveSnake() {
+      if (gameState !== "playing") {
+        return;
+      }
+
+      direction = queuedDirection;
+
+      const oldTail = snake[snake.length - 1];
+
+      const nextHead = {
+        x: snake[0].x + direction.x,
+        y: snake[0].y + direction.y,
+        color: snake[0].color
+      };
+
+      const hitWall =
+        nextHead.x < 0 ||
+        nextHead.x >= COLS ||
+        nextHead.y < 0 ||
+        nextHead.y >= ROWS;
+
+      if (hitWall) {
+        failLevel("撞到了区域边界。");
+        return;
+      }
+
+      const hitSelf = snake
+        .slice(0, -1)
+        .some((segment) => {
+          return (
+            segment.x === nextHead.x &&
+            segment.y === nextHead.y
+          );
+        });
+
+      if (hitSelf) {
+        failLevel("撞到了自己的身体。");
+        return;
+      }
+
+      const eatenFoodIndex = foods.findIndex((food) => {
+        return (
+          food.x === nextHead.x &&
+          food.y === nextHead.y
+        );
+      });
+
+      const eatenFood =
+        eatenFoodIndex >= 0
+          ? foods[eatenFoodIndex]
+          : null;
+
+      snake = snake.map((segment, index) => {
+        if (index === 0) {
+          return {
+            x: nextHead.x,
+            y: nextHead.y,
+            color: segment.color
+          };
+        }
+
+        return {
+          x: snake[index - 1].x,
+          y: snake[index - 1].y,
+          color: segment.color
+        };
+      });
+
+      if (eatenFood !== null) {
+        foods.splice(eatenFoodIndex, 1);
+
+        const tail = snake[snake.length - 1];
+
+        if (
+          tail.color !== "white" &&
+          tail.color === eatenFood.color
+        ) {
+          // 同色方块配对消除。
+          snake.pop();
+        } else {
+          // 不同颜色时，在蛇尾增加当前颜色方块。
+          snake.push({
+            x: oldTail.x,
+            y: oldTail.y,
+            color: eatenFood.color
+          });
+        }
+
+        if (snake.length >= MAX_LENGTH) {
+          render();
+          failLevel("蛇身长度达到 " + MAX_LENGTH + " 格。");
+          return;
+        }
+
+        if (foods.length === 0) {
+          render();
+          completeLevel();
+          return;
+        }
+      }
+
+      steps += 1;
+      render();
+    }
+
+    function failLevel(reason) {
+      gameState = "lost";
+      setPauseIcon(true);
+
+      showDialog(
+        "第 " + LEVELS[currentLevel].level +
+          " / " + TOTAL_LEVELS + " 关",
+        "本关失败",
+        reason + " 请重新安排吃方块的顺序。",
+        "重试本关",
+        startCurrentLevel,
+        "返回开始",
+        showStartDialog
+      );
+    }
+
+    function completeLevel() {
+      gameState = "completed";
+      setPauseIcon(true);
+
+      const isLastLevel =
+        currentLevel === TOTAL_LEVELS - 1;
+
+      if (isLastLevel) {
+        showDialog(
+          "全部 " + TOTAL_LEVELS + " 关完成",
+          "挑战完成",
+          "你用 " + steps +
+            " 步清空了最后一关，最终蛇身长度为 " +
+            snake.length + " 格。",
+          "从第一关开始",
+          () => {
+            currentLevel = 0;
+            startCurrentLevel();
+          },
+          "重玩第十关",
+          startCurrentLevel
+        );
+
+        return;
+      }
+
+      showDialog(
+        "第 " + LEVELS[currentLevel].level + " 关完成",
+        "通关",
+        "剩余蛇身 " + snake.length +
+          " 格。下一关将增加方块数量并提高速度。",
+        "进入下一关",
+        () => {
+          currentLevel += 1;
+          startCurrentLevel();
+        },
+        "重玩本关",
+        startCurrentLevel
+      );
+    }
+
+    function showStartDialog() {
+      gameState = "intro";
+      clearTimers();
+      setPauseIcon(true);
+
+      showDialog(
+        "共 " + TOTAL_LEVELS + " 关",
+        "彩色消除贪吃蛇",
+        "吃到不同颜色会在蛇尾增加方块。连续吃到与蛇尾同色的方块，可以消除一格尾部颜色。",
+        "开始游戏",
+        startCurrentLevel,
+        "重置第 1 关",
+        () => {
+          currentLevel = 0;
+          startCurrentLevel();
+        }
+      );
+    }
+
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+
+      const controls = {
+        arrowup: { x: 0, y: -1 },
+        w: { x: 0, y: -1 },
+        arrowdown: { x: 0, y: 1 },
+        s: { x: 0, y: 1 },
+        arrowleft: { x: -1, y: 0 },
+        a: { x: -1, y: 0 },
+        arrowright: { x: 1, y: 0 },
+        d: { x: 1, y: 0 }
+      };
+
+      if (controls[key]) {
+        event.preventDefault();
+        setDirection(controls[key]);
+      }
+
+      if (key === " ") {
+        event.preventDefault();
+        pauseGame();
+      }
+
+      if (key === "r") {
+        event.preventDefault();
+        startCurrentLevel();
+      }
+    });
+
+    document
+      .querySelectorAll("[data-direction]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const directions = {
+            up: { x: 0, y: -1 },
+            down: { x: 0, y: 1 },
+            left: { x: -1, y: 0 },
+            right: { x: 1, y: 0 }
+          };
+
+          setDirection(
+            directions[button.dataset.direction]
+          );
+        });
+      });
+
+    pauseButton.addEventListener("click", pauseGame);
+    restartButton.addEventListener(
+      "click",
+      startCurrentLevel
+    );
+
+    snake = createInitialSnake();
+    foods = generateFoods(LEVELS[currentLevel]);
+    render();
+    showStartDialog();
+  </script>
+</body>
+</html>
